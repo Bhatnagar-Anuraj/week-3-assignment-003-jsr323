@@ -23,122 +23,162 @@ GRADING CRITERIA:
 """
 
 import maya.cmds as cmds
+import math
+
+cmds.file(new=True, force=True)
+
+# Function Library
+
+#Creates a green groud plane, places it, and returns it.
+def create_ground(x=0, z=0, width=50, depth=50):
+    """Create and shade a ground plane. Returns the ground node name."""
+    ground = cmds.polyPlane(width=width, height=depth, name="ground")[0]
+    shader = cmds.shadingNode("lambert", asShader=True, name="groundShader")
+    cmds.setAttr(shader + ".color", 0.20, 0.30, 0.20, type="double3")
+    cmds.select(ground)
+    cmds.hyperShade(assign=shader)
+    cmds.move(x, 0, z, ground)
+    return ground
+
+#Creats a building, places it and returns it.
+def create_building(x, z, width=2.0, height=6.0, depth=2.0):
+    """Create a single building at (x, z)."""
+    building = cmds.polyCube(
+        width=width,
+        height=height,
+        depth=depth,
+        name="Building")[0]
+    cmds.move(x, height / 2.0, z, building)
+    return building
+
+#Creats a scaled rock, places it and returns it.
+def create_rock(x, z, scale=1.0):
+    """Create a rock at (x, z)."""
+    rock = cmds.polySphere(radius=1.0, name="rock")[0]
+    cmds.scale(scale, scale * 0.7, scale, rock)
+    cmds.move(x, scale / 2.0, z, rock)
+    return rock
+
+#Creates and scatters cloud clusters, places it and returns it
+def create_cloud(x, y, z, scale=1.5):
+    """Create a cloud made of oval spheres."""
+    parts = []
+
+    offsets = [
+        (0, 0, 0),
+        (1.2 * scale, 0.2 * scale, 0),
+        (-1.2 * scale, 0.1 * scale, 0.8 * scale)]
+
+    for ox, oy, oz in offsets:
+        cloud = cmds.polySphere(radius=1.0, name="cloud")[0]
+        cmds.scale(scale * 1.5, scale * 0.8, scale * 1.2, cloud)
+        cmds.move(x + ox, y + oy, z + oz, cloud)
+        parts.append(cloud)
+
+    return parts
 
 
-def create_building(width=4, height=8, depth=4, position=(0, 0, 0)):
-    """Create a simple building from a cube, placed on the ground plane.
+def scatter_clouds(count=6, area=25, height=30):
+    clouds = []
 
-    The building is a single scaled cube whose base sits at ground level
-    (y = 0) at the given position.
+    for i in range(count):
+        angle = math.sin(i * 9.123) * 1000.0
+        x = math.sin(angle) * area
+        z = math.cos(angle * 1.3) * area
+        y = height + (math.sin(i) * 3)
 
-    Args:
-        width (float): Width of the building along the X axis.
-        height (float): Height of the building along the Y axis.
-        depth (float): Depth of the building along the Z axis.
-        position (tuple): (x, y, z) ground-level position. The building
-            base will rest at this point; y is typically 0.
+        clouds.extend(create_cloud(x, y, z, scale=1.5))
 
-    Returns:
-        str: The name of the created building transform node.
-    """
-    # TODO: Implement this function.
-    #   1. Create a polyCube with the given width, height, and depth.
-    #   2. Move it so its base sits on the ground at 'position'.
-    #      Hint: offset Y by height / 2.0.
-    #   3. Return the object name.
-    pass
+    return clouds
+
+#Creats a sun sphere with orbiting rays arranged around it procedurally, places it and returns it
+def create_sun(x, y, z, radius=6):
+    """Create the main sun sphere."""
+    sun = cmds.polySphere(radius=radius, name="sun")[0]
+    cmds.move(x, y, z, sun)
+    return sun
 
 
-def create_tree(trunk_radius=0.3, trunk_height=3, canopy_radius=2,
-                position=(0, 0, 0)):
-    """Create a simple tree using a cylinder trunk and a sphere canopy.
+def create_sun_ray(sun_x, sun_y, sun_z, direction, scale=1.0):
+    """Create a sun ray."""
+    ray = cmds.polyCone(radius=0.5, height=2.5, name="sunray")[0]
 
-    Args:
-        trunk_radius (float): Radius of the cylindrical trunk.
-        trunk_height (float): Height of the trunk cylinder.
-        canopy_radius (float): Radius of the sphere used for the canopy.
-        position (tuple): (x, y, z) ground-level position for the tree base.
+    cmds.rotate(90, 0, 0, ray, relative=True)
+    cmds.scale(scale, scale * 2.0, scale, ray)
 
-    Returns:
-        str: The name of a group node containing the trunk and canopy.
-    """
-    # TODO: Implement this function.
-    #   1. Create a polyCylinder for the trunk and position it.
-    #   2. Create a polySphere for the canopy, positioned on top of the trunk.
-    #   3. Group trunk and canopy together using cmds.group().
-    #   4. Move the group to 'position'.
-    #   5. Return the group name.
-    pass
+    x = sun_x + direction[0]
+    y = sun_y + direction[1]
+    z = sun_z + direction[2]
+
+    cmds.move(x, y, z, ray)
+    cmds.delete(ray, constructionHistory=True)
+
+    return ray
 
 
-def create_fence(length=10, height=1.5, post_count=6, position=(0, 0, 0)):
-    """Create a simple fence made of posts and rails.
+def build_sun(center_x=0, center_y=40, center_z=-40, ray_count=14):
+    elements = []
 
-    The fence runs along the X axis starting at the given position.
+    sun = create_sun(center_x, center_y, center_z, radius=6)
+    elements.append(sun)
 
-    Args:
-        length (float): Total length of the fence along the X axis.
-        height (float): Height of the fence posts.
-        post_count (int): Number of vertical posts (must be >= 2).
-        position (tuple): (x, y, z) starting position of the fence.
+    for i in range(ray_count):
+        angle = (2 * math.pi / ray_count) * i
+        radius = 10
 
-    Returns:
-        str: The name of a group node containing all fence parts.
-    """
-    # TODO: Implement this function.
-    #   1. Calculate spacing between posts: length / (post_count - 1).
-    #   2. Loop to create 'post_count' thin, tall cubes as posts.
-    #   3. Create a long, thin cube as a horizontal rail connecting them.
-    #   4. Group everything and move to 'position'.
-    #   5. Return the group name.
-    pass
+        dx = math.cos(angle) * radius
+        dz = math.sin(angle) * radius
+        dy = math.sin(angle * 2.0) * 3.0
 
+        ray = create_sun_ray(
+            center_x,
+            center_y,
+            center_z,
+            direction=(dx, dy, dz),
+            scale=1.0)
 
-def create_lamp_post(pole_height=5, light_radius=0.5, position=(0, 0, 0)):
-    """Create a street lamp using a cylinder pole and a sphere light.
+        elements.append(ray)
 
-    Args:
-        pole_height (float): Height of the lamp pole.
-        light_radius (float): Radius of the sphere representing the light.
-        position (tuple): (x, y, z) ground-level position.
+    return elements
 
-    Returns:
-        str: The name of a group node containing the pole and light.
-    """
-    # TODO: Implement this function.
-    #   1. Create a thin polyCylinder for the pole.
-    #   2. Create a polySphere for the light, placed at the top of the pole.
-    #   3. Group them, move to 'position', and return the group name.
-    pass
+#creates a lambert shader and applies a given RGB color
+def apply_color(nodes, r, g, b, shader_name="shader"):
+    shader = cmds.shadingNode("lambert", asShader=True, name=shader_name)
+    cmds.setAttr(shader + ".color", r, g, b, type="double3")
 
+    for n in nodes:
+        cmds.select(n)
+        cmds.hyperShade(assign=shader)
 
-def place_in_circle(create_func, count=8, radius=10, center=(0, 0, 0),
-                     **kwargs):
-    """Place objects created by 'create_func' in a circular arrangement.
+    return shader
+    
+#Creates and randomly scatters rocks around the center point with various different sizes
+def scatter_rocks(center_x, center_z, count=20, spread=10.0):
+    rocks = []
 
-    This is a higher-order function: it takes another function as an
-    argument and calls it repeatedly to place objects around a circle.
+    for i in range(count):
+        angle = math.sin(i * 12.9898) * 43758.5453
+        x_offset = math.sin(angle) * spread
+        z_offset = math.cos(angle * 1.7) * spread
 
-    Args:
-        create_func (callable): A function from this module (e.g.,
-            create_tree) that accepts a 'position' keyword argument
-            and returns an object name.
-        count (int): Number of objects to place around the circle.
-        radius (float): Radius of the circle.
-        center (tuple): (x, y, z) center of the circle.
-        **kwargs: Additional keyword arguments passed to create_func
-            (e.g., trunk_height=4).
+        x = center_x + x_offset
+        z = center_z + z_offset
 
-    Returns:
-        list: A list of object/group names created by create_func.
-    """
-    # TODO: Implement this function.
-    #   1. Import the math module (at the top of the file or here).
-    #   2. Loop 'count' times. For each iteration:
-    #       a. Calculate the angle: angle = 2 * math.pi * i / count
-    #       b. Calculate x = center[0] + radius * math.cos(angle)
-    #       c. Calculate z = center[2] + radius * math.sin(angle)
-    #       d. Call create_func(position=(x, center[1], z), **kwargs)
-    #       e. Append the returned name to a results list.
-    #   3. Return the results list.
-    pass
+        scale = 0.5 + (math.sin(i * 3.1) * 0.5 + 0.5)
+        rocks.append(create_rock(x, z, scale))
+
+    return rocks
+
+#Places objects evenly in a circle around a center point
+#I had AI help with the math
+def place_in_circle(create_func, count, radius, center_x=0, center_z=0):
+    results = []
+
+    for i in range(count):
+        angle = (2 * math.pi / count) * i
+        x = center_x + math.cos(angle) * radius
+        z = center_z + math.sin(angle) * radius
+
+        results.append(create_func(x, z))
+
+    return results

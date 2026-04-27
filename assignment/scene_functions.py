@@ -24,22 +24,42 @@ GRADING CRITERIA:
 
 import maya.cmds as cmds
 import math
+import random
+
+
 
 
 # Function Library
 
 #Creates a green groud plane, places it, and returns it.
-
 def create_ground(name="ground", width=50, depth=50, position=(0, 0, 0)):
-    """Create a ground plane in Maya and return its name."""
+    """Create a ground plane in Maya and return its name.
+
+    Args:
+        name: The name to assign to the ground plane object.
+        width: The width of the ground plane along the X axis.
+        depth: The depth of the ground plane along the Z axis.
+        position: A tuple (x, y, z) for where to place the plane.
+
+    Returns:
+        The string name of the created ground plane object.
+    """
     ground = cmds.polyPlane(name=name, w=width, h=depth)[0]
     cmds.move(position[0], position[1], position[2], ground)
     return ground
 
 #Creats a building, places it and returns it.
-
 def create_building(name="building", position=(0, 0, 0), scale=1.0):
-    """Create a building made of a base and roof and return both parts."""
+    """Create a building made of a base cube and a roof cube.
+
+    Args:
+        name: The base name used to label the building parts.
+        position: A tuple (x, y, z) for the building's center position.
+        scale: A float that uniformly scales the building's size.
+
+    Returns:
+        A list containing the string names of the base and roof objects.
+    """
     base = cmds.polyCube(name=f"{name}_base", w=4*scale, h=6*scale, d=4*scale)[0]
     roof = cmds.polyCube(name=f"{name}_roof", w=4.5*scale, h=2*scale, d=4.5*scale)[0]
 
@@ -49,40 +69,67 @@ def create_building(name="building", position=(0, 0, 0), scale=1.0):
     return [base, roof]
 
 #Creats a scaled rock, places it and returns it.
-
 def create_rock(position=(0, 0, 0), scale=1.0):
-    """Create a rock object at a position and return its name."""
+    """Create a flattened sphere to represent a rock at a given position.
+
+    Args:
+        position: A tuple (x, y, z) for where to place the rock.
+        scale: A float that controls the overall size of the rock.
+
+    Returns:
+        The string name of the created rock object.
+    """
     rock = cmds.polySphere(r=1 * scale, name="rock")[0]
     cmds.scale(scale, scale * 0.6, scale, rock)
     cmds.move(position[0], position[1], position[2], rock)
     return rock
 
 #Creates and scatters cloud clusters, places it and returns it
-
 def create_cloud(position=(0, 10, 0), scale=1.0):
-    """Create a cloud made of multiple spheres and return all parts."""
-    parts = []
+    """Create a cloud made of three overlapping spheres.
 
+    Args:
+        position: A tuple (x, y, z) for the starting position of the cloud.
+        scale: A float that controls the size of each sphere in the cloud.
+
+    Returns:
+        A list of string names for all sphere objects that make up the cloud.
+    """
+    parts = []
     for i in range(3):
         cloud_part = cmds.polySphere(r=1 * scale, name=f"cloud_{i}")[0]
         cmds.move(position[0] + i * scale, position[1], position[2], cloud_part)
         parts.append(cloud_part)
-
     return parts
 
 #Creats a sun sphere with orbiting rays arranged around it procedurally, places it and returns it
-
 def create_sun(position=(0, 30, 0), scale=3.0):
-    """Create a sun sphere and return its name."""
+    """Create a large sphere to represent the sun.
+
+    Args:
+        position: A tuple (x, y, z) for where to place the sun.
+        scale: A float that controls the radius of the sun sphere.
+
+    Returns:
+        The string name of the created sun sphere object.
+    """
     sun = cmds.polySphere(r=2 * scale, name="sun")[0]
     cmds.move(position[0], position[1], position[2], sun)
     return sun
 
 
 def create_sun_rays(count=8, radius=6, position=(0, 30, 0)):
-    """Create sun rays arranged in a circle and return all ray names."""
-    rays = []
+    """Create small cubes arranged in a circle to represent sun rays.
 
+    Args:
+        count: The number of rays to create around the sun.
+        radius: The distance from the sun's center to each ray.
+        position: A tuple (x, y, z) matching the sun's position.
+
+    Returns:
+        A list of string names for all ray cube objects.
+    """
+    rays = []
     for i in range(count):
         angle = (2 * math.pi / count) * i
         x = position[0] + math.cos(angle) * radius
@@ -91,98 +138,123 @@ def create_sun_rays(count=8, radius=6, position=(0, 30, 0)):
         ray = cmds.polyCube(w=0.5, h=3, d=0.5, name=f"ray_{i}")[0]
         cmds.move(x, position[1], z, ray)
         rays.append(ray)
-
     return rays
 
-
 #creates a lambert shader and applies a given RGB color
-
 def apply_color(obj, color):
-    """Apply a Lambert color shader to a Maya object and return shader name."""
+    """Create a Lambert shader with the given RGB color and apply it to an object.
+
+    Args:
+        obj: The string name of the Maya object to shade.
+        color: A tuple of three floats (r, g, b) each in the range 0.0 to 1.0.
+
+    Returns:
+        The string name of the created Lambert shader node.
+    """
     shader = cmds.shadingNode('lambert', asShader=True)
     cmds.setAttr(shader + ".color", *color, type="double3")
 
     sg = cmds.sets(renderable=True, noSurfaceShader=True, empty=True)
     cmds.connectAttr(shader + ".outColor", sg + ".surfaceShader")
-
     cmds.sets(obj, edit=True, forceElement=sg)
     return shader
 
 
 def flatten(items):
-    """Flatten a nested list of Maya objects into a single list."""
+    """Flatten a nested list of Maya object names into a single flat list.
+
+    Uses cmds.ls to verify each object exists in the scene before including it.
+
+    Args:
+        items: A list that may contain strings or nested lists of strings.
+
+    Returns:
+        A flat list of string object names that exist in the Maya scene.
+    """
     result = []
     for i in items:
         if isinstance(i, list):
             result.extend(i)
         else:
             result.append(i)
-    return result
+    # Use cmds.ls to confirm objects exist in scene
+    return cmds.ls(result)
 
 
 def color_all(objects, color):
-    """Apply color to all objects in a list and return the list of objects."""
+    """Apply the same color shader to every object in a list.
+
+    Args:
+        objects: A list of string Maya object names to colorize.
+        color: A tuple of three floats (r, g, b) each in the range 0.0 to 1.0.
+
+    Returns:
+        A list of string names of all objects that had color applied,
+        as confirmed by cmds.ls.
+    """
     for obj in objects:
         apply_color(obj, color)
-    return objects
-
+    return cmds.ls(objects)
 
 #Creates and randomly scatters rocks, buildings, and clouds around the center point with various different sizes
+def scatter_rocks(count=6, spread=20):
+    """Randomly scatter rocks across the ground within a given area.
 
-def build_scene():
-    """Build the full Maya scene and return all created objects."""
-    cmds.file(new=True, force=True)
+    Args:
+        count: The number of rocks to create.
+        spread: The maximum distance from center (x and z) rocks can appear.
 
-    ground = create_ground(width=60, depth=60)
-
-    rocks = scatter_rocks()
-    buildings = place_buildings()
-    clouds = scatter_clouds()
-
-    sun = create_sun()
-    rays = create_sun_rays()
-
-    circle_rocks = [
-        create_rock((math.cos(i)*6, 0, math.sin(i)*6), scale=0.8)
-        for i in [j * (2*math.pi/8) for j in range(8)]
-    ]
-
-    #Color Edits
-
-    apply_color(ground, (0.2, 0.7, 0.2))
-
-    color_all(rocks, (0.75, 0.75, 0.75))
-    color_all(circle_rocks, (0.75, 0.75, 0.75))
-
-    color_all(flatten(buildings), (0.55, 0.75, 0.95))
-
-    color_all(flatten(clouds), (1.0, 1.0, 1.0))
-
-    apply_color(sun, (1.0, 0.9, 0.2))
-
-    color_all(rays, (1.0, 0.6, 0.1))
-    apply_color(rays[0], (1.0, 0.2, 0.0))
+    Returns:
+        A list of string names for all created rock objects.
+    """
+    rocks = []
+    for _ in range(count):
+        x = random.uniform(-spread, spread)
+        z = random.uniform(-spread, spread)
+        scale = random.uniform(0.5, 1.5)
+        rock = create_rock(position=(x, 0, z), scale=scale)
+        rocks.append(rock)
+    return rocks
 
 
-    #Builds a full procedural scene with ground, buildings, rocks, clouds, and a sun, then applies colors and combines all objects.
+def place_buildings(count=4, spread=15):
+    """Place buildings at random positions across the scene.
 
-    all_objects = (
-        [ground]
-        + rocks
-        + circle_rocks
-        + flatten(buildings)
-        + flatten(clouds)
-        + [sun]
-        + rays
-    )
+    Args:
+        count: The number of buildings to create.
+        spread: The maximum distance from center (x and z) buildings can appear.
 
-    print("Total objects:", len(all_objects))
-    cmds.viewFit(allObjects=True)
-    print("Scene built successfully!")
+    Returns:
+        A list of lists, where each inner list contains the base and roof
+        object names for one building.
+    """
+    buildings = []
+    for i in range(count):
+        x = random.uniform(-spread, spread)
+        z = random.uniform(-spread, spread)
+        scale = random.uniform(0.8, 1.5)
+        building = create_building(name=f"building_{i}", position=(x, 0, z), scale=scale)
+        buildings.append(building)
+    return buildings
 
 
-# RUN
-build_scene()
+def scatter_clouds(count=4, spread=15, height=15):
+    """Create and scatter cloud clusters at a given height across the scene.
 
-# RUN
-build_scene()
+    Args:
+        count: The number of cloud clusters to create.
+        spread: The maximum distance from center (x and z) clouds can appear.
+        height: The Y position at which clouds are placed.
+
+    Returns:
+        A list of lists, where each inner list contains the sphere names
+        for one cloud cluster.
+    """
+    clouds = []
+    for _ in range(count):
+        x = random.uniform(-spread, spread)
+        z = random.uniform(-spread, spread)
+        scale = random.uniform(0.8, 1.4)
+        cloud = create_cloud(position=(x, height, z), scale=scale)
+        clouds.append(cloud)
+    return clouds

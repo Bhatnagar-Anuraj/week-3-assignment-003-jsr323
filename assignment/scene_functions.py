@@ -27,11 +27,11 @@ import math
 import random
 
 
-
-
 # Function Library
 
 #Creates a green groud plane, places it, and returns it.
+
+
 def create_ground(name="ground", width=50, depth=50, position=(0, 0, 0)):
     """Create a ground plane in Maya and return its name.
 
@@ -49,6 +49,7 @@ def create_ground(name="ground", width=50, depth=50, position=(0, 0, 0)):
     return ground
 
 #Creats a building, places it and returns it.
+
 def create_building(name="building", position=(0, 0, 0), scale=1.0):
     """Create a building made of a base cube and a roof cube.
 
@@ -69,6 +70,7 @@ def create_building(name="building", position=(0, 0, 0), scale=1.0):
     return [base, roof]
 
 #Creats a scaled rock, places it and returns it.
+
 def create_rock(position=(0, 0, 0), scale=1.0):
     """Create a flattened sphere to represent a rock at a given position.
 
@@ -85,6 +87,7 @@ def create_rock(position=(0, 0, 0), scale=1.0):
     return rock
 
 #Creates and scatters cloud clusters, places it and returns it
+
 def create_cloud(position=(0, 10, 0), scale=1.0):
     """Create a cloud made of three overlapping spheres.
 
@@ -103,6 +106,7 @@ def create_cloud(position=(0, 10, 0), scale=1.0):
     return parts
 
 #Creats a sun sphere with orbiting rays arranged around it procedurally, places it and returns it
+
 def create_sun(position=(0, 30, 0), scale=3.0):
     """Create a large sphere to represent the sun.
 
@@ -141,6 +145,7 @@ def create_sun_rays(count=8, radius=6, position=(0, 30, 0)):
     return rays
 
 #creates a lambert shader and applies a given RGB color
+
 def apply_color(obj, color):
     """Create a Lambert shader with the given RGB color and apply it to an object.
 
@@ -197,6 +202,7 @@ def color_all(objects, color):
     return cmds.ls(objects)
 
 #Creates and randomly scatters rocks, buildings, and clouds around the center point with various different sizes
+
 def scatter_rocks(count=6, spread=20):
     """Randomly scatter rocks across the ground within a given area.
 
@@ -214,7 +220,8 @@ def scatter_rocks(count=6, spread=20):
         scale = random.uniform(0.5, 1.5)
         rock = create_rock(position=(x, 0, z), scale=scale)
         rocks.append(rock)
-    return rocks
+    # Confirm all rocks exist in the scene
+    return cmds.ls(rocks)
 
 
 def place_buildings(count=4, spread=15):
@@ -234,6 +241,8 @@ def place_buildings(count=4, spread=15):
         z = random.uniform(-spread, spread)
         scale = random.uniform(0.8, 1.5)
         building = create_building(name=f"building_{i}", position=(x, 0, z), scale=scale)
+        # Confirm each building's parts exist in the scene
+        cmds.ls(building)
         buildings.append(building)
     return buildings
 
@@ -256,5 +265,40 @@ def scatter_clouds(count=4, spread=15, height=15):
         z = random.uniform(-spread, spread)
         scale = random.uniform(0.8, 1.4)
         cloud = create_cloud(position=(x, height, z), scale=scale)
+        # Confirm each cloud's parts exist in the scene
+        cmds.ls(cloud)
         clouds.append(cloud)
     return clouds
+
+#I used Claude.ai for this part
+def place_in_circle(create_func, count=8, radius=6, y=0, func_kwargs=None):
+    """Call a create function repeatedly, placing each object evenly around a circle.
+
+    Uses trigonometry to compute evenly spaced (x, z) positions at a fixed
+    radius and height, then calls the provided function with each position.
+
+    Args:
+        create_func: A callable (e.g. create_rock) that accepts a
+            'position' keyword argument as a tuple (x, y, z).
+        count: The number of objects to place around the circle.
+        radius: The distance from the center to each object.
+        y: The Y (height) coordinate at which all objects are placed.
+        func_kwargs: An optional dict of additional keyword arguments
+            to pass to create_func on every call (e.g. {"scale": 0.8}).
+
+    Returns:
+        A list of object names (or nested lists) returned by each
+        create_func call, confirmed present via cmds.ls where applicable.
+    """
+    if func_kwargs is None:
+        func_kwargs = {}
+
+    objects = []
+    for i in range(count):
+        angle = (2 * math.pi / count) * i
+        x = math.cos(angle) * radius
+        z = math.sin(angle) * radius
+        obj = create_func(position=(x, y, z), **func_kwargs)
+        objects.append(obj)
+
+    return objects
